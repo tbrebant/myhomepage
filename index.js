@@ -4,18 +4,18 @@ class App extends DoDom {
 
     const dropdown = [
       { label: 'DuckDuckGo', value: 'duckduckgo', url: 'https://www.duckduckgo.com/?q={q}' },
-      { label: 'DuckDuckGo Images', value: 'duckduckgo-images', url: 'https://duckduckgo.com/?q={q}&iar=images' },
-      { label: 'Google', value: 'google', url: 'https://www.google.com/search?q={q}' },
-      { label: 'Google Images', value: 'google-images', url: 'https://www.google.com/search?tbm=isch&q={q}' },
-      { label: 'YouTube', value: 'youtube', url: 'https://www.youtube.com/results?search_query={q}' },
-      { label: 'Yahoo jp', value: 'yahoo', url: 'https://search.yahoo.co.jp/search?p={q}' },
+      { label: 'DuckDuckGo Images', value: 'duckduckgo-images', url: 'https://duckduckgo.com/?q={q}&iar=images', shortcuts: ['i'] },
+      { label: 'Google', value: 'google', url: 'https://www.google.com/search?q={q}', shortcuts: ['g'] },
+      { label: 'Google Images', value: 'google-images', url: 'https://www.google.com/search?tbm=isch&q={q}', shortcuts: ['gi'] },
+      { label: 'YouTube', value: 'youtube', url: 'https://www.youtube.com/results?search_query={q}', shortcuts: ['y'] },
+      { label: 'Yahoo jp', value: 'yahoo', url: 'https://search.yahoo.co.jp/search?p={q}', shortcuts: ['ya'] },
       { label: 'ChatGPT', value: 'chatgpt', url: 'https://chat.openai.com/?q={q}' },
-      { label: '⇒ English', value: 'translate', url: 'https://translate.google.com/?sl=auto&tl=en&text={q}&op=translate' },
-      { label: '⇒ French', value: 'translate-fr', url: 'https://translate.google.com/?sl=auto&tl=fr&text={q}&op=translate' },
-      { label: '⇒ Japanese', value: 'translate-ja', url: 'https://translate.google.com/?sl=auto&tl=ja&text={q}&op=translate' },
-      { label: 'Google (fr results)', value: 'google-fr', url: 'https://www.google.com/search?q={q}&lr=lang_fr&hl=fr' },
-      { label: 'Google (en results)', value: 'google-en', url: 'https://www.google.com/search?q={q}&lr=lang_en&hl=en' },
-      { label: 'Google (ja results)', value: 'google-ja', url: 'https://www.google.com/search?q={q}&lr=lang_ja&hl=ja' },
+      { label: '⇒ English', value: 'translate', url: 'https://translate.google.com/?sl=auto&tl=en&text={q}&op=translate', shortcuts: ['te'] },
+      { label: '⇒ French', value: 'translate-fr', url: 'https://translate.google.com/?sl=auto&tl=fr&text={q}&op=translate', shortcuts: ['t', 'tf'] },
+      { label: '⇒ Japanese', value: 'translate-ja', url: 'https://translate.google.com/?sl=auto&tl=ja&text={q}&op=translate', shortcuts: ['tj'] },
+      { label: 'Google (fr results)', value: 'google-fr', url: 'https://www.google.com/search?q={q}&lr=lang_fr&hl=fr', shortcuts: ['gf'] },
+      { label: 'Google (en results)', value: 'google-en', url: 'https://www.google.com/search?q={q}&lr=lang_en&hl=en', shortcuts: ['ge'] },
+      { label: 'Google (ja results)', value: 'google-ja', url: 'https://www.google.com/search?q={q}&lr=lang_ja&hl=ja', shortcuts: ['gj'] },
     ];
 
     this.config = {
@@ -53,6 +53,11 @@ class App extends DoDom {
       },
       default: 'perso'
     };
+
+    this.shortcutActive = false;
+    this.shortcutBuffer = [];
+    this.shortcutBufferRaw = [];
+    this.dropdownShortcuts = {};
 
     this.settingsButton = this.addDoDom('div', { class: 'settings-button', html: '&lt;&lt;' });
 
@@ -106,6 +111,7 @@ class App extends DoDom {
     this.onDropdownKeydown = this.onDropdownKeydown.bind(this);
     this.onCustomCssInput = this.onCustomCssInput.bind(this);
     this.onSearchboxKeydown = this.onSearchboxKeydown.bind(this);
+    this.onSearchboxKeyup = this.onSearchboxKeyup.bind(this);
 
     this.attachEventListeners();
     this.focusSearchInput();
@@ -117,12 +123,64 @@ class App extends DoDom {
     window.renderPage = this.renderPage.bind(this);
   }
 
+  onSearchboxKeyup (event) {
+    if (event.key !== 'Shift') return;
+
+    const bufferJoined = this.shortcutBuffer.join('');
+    const rawText = this.shortcutBufferRaw.join('');
+
+    this.shortcutActive = false;
+    this.shortcutBuffer = [];
+    this.shortcutBufferRaw = [];
+
+    if (!bufferJoined) return;
+
+    const handled = this.applyShortcutFromBuffer(bufferJoined);
+    if (handled) {
+      this.focusSearchInput();
+    } else {
+      this.insertTextAtCursor(rawText);
+    }
+  }
+
+  applyShortcutFromBuffer (shortcut = '') {
+    const key = `${shortcut}`.toLowerCase();
+    const dropdownValue = this.dropdownShortcuts?.[key];
+    if (!dropdownValue) return false;
+
+    const dropdown = this.searchDropdown?.dom;
+    if (!dropdown) return false;
+
+    dropdown.value = dropdownValue;
+    dropdown.dispatchEvent(new Event('change', { bubbles: true }));
+    this.performSearch();
+    return true;
+  }
+
+  insertTextAtCursor (text = '') {
+    if (!text) return;
+    const input = this.searchBox?.dom;
+    if (!input) return;
+
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const before = input.value.slice(0, start);
+    const after = input.value.slice(end);
+    input.value = `${before}${text}${after}`;
+
+    const caret = start + text.length;
+    if (typeof input.setSelectionRange === 'function') {
+      input.setSelectionRange(caret, caret);
+    }
+  }
+
   attachEventListeners () {
     this.settingsButton.onClick(() => this.openCloseSettings(true));
     this.closeSettingsBtn.onClick(() => this.openCloseSettings(false));
     this.submitButton.onClick(this.performSearch);
     this.reloadButton.onClick(() => this.hardReload());
     this.searchBox.dom.addEventListener('keydown', this.onSearchboxKeydown);
+    this.searchBox.dom.addEventListener('keyup', this.onSearchboxKeyup);
     this.form.dom.addEventListener('submit', this.performSearch);
     this.searchDropdown.dom.addEventListener('keydown', this.onDropdownKeydown);
     this.customCssTextarea.dom.addEventListener('input', this.onCustomCssInput);
@@ -131,10 +189,23 @@ class App extends DoDom {
   renderDropdown (dropdownDef = []) {
     const select = this.searchDropdown;
     select.destroyChildren();
+    this.dropdownShortcuts = {};
+    this.currentDropdownDef = dropdownDef;
     dropdownDef.forEach(opt => {
       const option = select.addDoDom('option', { text: opt.label });
       option.dom.value = opt.value;
       option.dom.dataset.url = opt.url;
+      const shortcuts = Array.isArray(opt.shortcuts)
+        ? opt.shortcuts
+        : (opt.shortcut ? [opt.shortcut] : []);
+      if (shortcuts?.length) {
+        option.dom.dataset.shortcuts = shortcuts.join(',');
+        shortcuts.forEach(shortcut => {
+          const key = `${shortcut}`.trim().toLowerCase();
+          if (!key) return;
+          this.dropdownShortcuts[key] = opt.value;
+        });
+      }
     });
   }
 
@@ -302,6 +373,29 @@ class App extends DoDom {
   }
 
   onSearchboxKeydown (event) {
+    if (event.key === 'Shift') {
+      this.shortcutActive = true;
+      this.shortcutBuffer = [];
+      this.shortcutBufferRaw = [];
+      return;
+    }
+
+    if (this.shortcutActive && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (/^[a-z0-9]$/i.test(event.key)) {
+        event.preventDefault();
+        this.shortcutBuffer.push(event.key.toLowerCase());
+        this.shortcutBufferRaw.push(event.key);
+        return;
+      }
+
+      if (event.key === 'Backspace') {
+        event.preventDefault();
+        this.shortcutBuffer.pop();
+        this.shortcutBufferRaw.pop();
+        return;
+      }
+    }
+
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault();
       const delta = event.key === 'ArrowUp' ? -1 : 1;
