@@ -3,19 +3,23 @@ class App extends DoDom {
     super('div', { class: 'app', attachToBody: true });
 
     const dropdown = [
-      { label: 'DuckDuckGo', value: 'duckduckgo', url: 'https://www.duckduckgo.com/?q={q}' },
+      { label: 'DuckDuckGo', value: 'duckduckgo', url: 'https://www.duckduckgo.com/?q={q}', shortcuts: ['d'] },
       { label: 'DuckDuckGo Images', value: 'duckduckgo-images', url: 'https://duckduckgo.com/?q={q}&iar=images', shortcuts: ['i'] },
       { label: 'Google', value: 'google', url: 'https://www.google.com/search?q={q}', shortcuts: ['g'] },
       { label: 'Google Images', value: 'google-images', url: 'https://www.google.com/search?tbm=isch&q={q}', shortcuts: ['gi'] },
-      { label: 'YouTube', value: 'youtube', url: 'https://www.youtube.com/results?search_query={q}', shortcuts: ['y'] },
+      { label: 'YouTube', value: 'youtube', url: 'https://www.youtube.com/results?search_query={q}', shortcuts: ['y', 'yt'] },
       { label: 'Yahoo jp', value: 'yahoo', url: 'https://search.yahoo.co.jp/search?p={q}', shortcuts: ['ya'] },
-      { label: 'ChatGPT', value: 'chatgpt', url: 'https://chat.openai.com/?q={q}' },
+      { label: 'ChatGPT', value: 'chatgpt', url: 'https://chat.openai.com/?q={q}', shortcuts: ['c', 'cg'] },
       { label: '⇒ English', value: 'translate', url: 'https://translate.google.com/?sl=auto&tl=en&text={q}&op=translate', shortcuts: ['te'] },
       { label: '⇒ French', value: 'translate-fr', url: 'https://translate.google.com/?sl=auto&tl=fr&text={q}&op=translate', shortcuts: ['t', 'tf'] },
       { label: '⇒ Japanese', value: 'translate-ja', url: 'https://translate.google.com/?sl=auto&tl=ja&text={q}&op=translate', shortcuts: ['tj'] },
       { label: 'Google (fr results)', value: 'google-fr', url: 'https://www.google.com/search?q={q}&lr=lang_fr&hl=fr', shortcuts: ['gf'] },
       { label: 'Google (en results)', value: 'google-en', url: 'https://www.google.com/search?q={q}&lr=lang_en&hl=en', shortcuts: ['ge'] },
       { label: 'Google (ja results)', value: 'google-ja', url: 'https://www.google.com/search?q={q}&lr=lang_ja&hl=ja', shortcuts: ['gj'] },
+      { label: 'DuckDuckGo (fr results)', value: 'duckduckgo-fr', url: 'https://www.duckduckgo.com/?q={q}&kl=fr-fr', shortcuts: ['df'] },
+      { label: 'DuckDuckGo (en results)', value: 'duckduckgo-en', url: 'https://www.duckduckgo.com/?q={q}&kl=us-en', shortcuts: ['de'] },
+      { label: 'DuckDuckGo (ja results)', value: 'duckduckgo-ja', url: 'https://www.duckduckgo.com/?q={q}&kl=jp-ja', shortcuts: ['dj'] },
+
     ];
 
     this.config = {
@@ -84,6 +88,11 @@ class App extends DoDom {
     this.linksContainer = this.mainContent.addDoDom('div', { class: 'link-columns' });
 
     this.settingsManager = new SettingsManager('homepage');
+    this.showDropdownShortcuts = this.settingsManager.get('show-dropdown-shortcuts', false);
+    this.autoSearchOnDropdownClick = this.settingsManager.get('auto-search-on-click', false);
+    this.dropdownSelectionViaPointer = false;
+    this.urlSearchState = this.readSearchStateFromUrl();
+    this.hasAppliedUrlSearchState = false;
 
     this.settingsWrapper = this.addDoDom('div', { class: 'settingsWrapper' });
     this.settingsContainer = this.settingsWrapper.addDoDom('div', { class: 'settingsContainer' });
@@ -95,6 +104,25 @@ class App extends DoDom {
     this.currentPageKey = initialPageKey;
     this.renderSettingsPages();
     this.renderPage(initialPageKey);
+    this.applyUrlSearchState();
+    // *** Dropdown preferences ***
+    this.dropdownSettingsSection = this.settingsContainer.addDoDom('div', { class: 'settingsSection' });
+    const dropdownToggleLabel = this.dropdownSettingsSection.addDoDom('label', { classes: ['settingsLabel', 'settingsCheckboxLabel'] });
+    this.dropdownShortcutsCheckbox = dropdownToggleLabel.addDoDom('input', { class: 'settingsCheckboxInput' });
+    this.dropdownShortcutsCheckbox.dom.type = 'checkbox';
+    this.dropdownShortcutsCheckbox.dom.id = 'settings-show-dropdown-shortcuts';
+    this.dropdownShortcutsCheckbox.dom.checked = this.showDropdownShortcuts;
+    this.dropdownShortcutsCheckbox.dom.addEventListener('change', this.onShowDropdownShortcutsChange.bind(this));
+    dropdownToggleLabel.dom.htmlFor = 'settings-show-dropdown-shortcuts';
+    dropdownToggleLabel.addDoDom('span', { text: 'Show shortcuts in dropdown' });
+    const autoSearchLabel = this.dropdownSettingsSection.addDoDom('label', { classes: ['settingsLabel', 'settingsCheckboxLabel'] });
+    this.autoSearchOnClickCheckbox = autoSearchLabel.addDoDom('input', { class: 'settingsCheckboxInput' });
+    this.autoSearchOnClickCheckbox.dom.type = 'checkbox';
+    this.autoSearchOnClickCheckbox.dom.id = 'settings-auto-search-on-click';
+    this.autoSearchOnClickCheckbox.dom.checked = this.autoSearchOnDropdownClick;
+    this.autoSearchOnClickCheckbox.dom.addEventListener('change', this.onAutoSearchOnClickChange.bind(this));
+    autoSearchLabel.dom.htmlFor = 'settings-auto-search-on-click';
+    autoSearchLabel.addDoDom('span', { text: 'Auto search on dropdown click' });
     // *** Custom CSS ***
     this.customCssSection = this.settingsContainer.addDoDom('div', { class: 'settingsSection' });
     this.customCssLabel = this.customCssSection.addDoDom('label', { text: 'Custom CSS', class: 'settingsLabel' });
@@ -183,21 +211,32 @@ class App extends DoDom {
     this.searchBox.dom.addEventListener('keyup', this.onSearchboxKeyup);
     this.form.dom.addEventListener('submit', this.performSearch);
     this.searchDropdown.dom.addEventListener('keydown', this.onDropdownKeydown);
+    this.searchDropdown.dom.addEventListener('change', this.onDropdownChange.bind(this));
+    if (typeof window !== 'undefined' && 'PointerEvent' in window) {
+      this.searchDropdown.dom.addEventListener('pointerdown', this.onDropdownPointerDown.bind(this));
+    } else {
+      this.searchDropdown.dom.addEventListener('mousedown', this.onDropdownPointerDown.bind(this));
+    }
+    this.searchDropdown.dom.addEventListener('blur', this.onDropdownBlur.bind(this));
     this.customCssTextarea.dom.addEventListener('input', this.onCustomCssInput);
   }
 
   renderDropdown (dropdownDef = []) {
     const select = this.searchDropdown;
+    if (!select) return;
+    const selectDom = select.dom;
+    const previousValue = selectDom?.value;
+
     select.destroyChildren();
     this.dropdownShortcuts = {};
     this.currentDropdownDef = dropdownDef;
     dropdownDef.forEach(opt => {
-      const option = select.addDoDom('option', { text: opt.label });
-      option.dom.value = opt.value;
-      option.dom.dataset.url = opt.url;
       const shortcuts = Array.isArray(opt.shortcuts)
         ? opt.shortcuts
         : (opt.shortcut ? [opt.shortcut] : []);
+      const option = select.addDoDom('option', { text: this.formatDropdownLabel(opt, shortcuts) });
+      option.dom.value = opt.value;
+      option.dom.dataset.url = opt.url;
       if (shortcuts?.length) {
         option.dom.dataset.shortcuts = shortcuts.join(',');
         shortcuts.forEach(shortcut => {
@@ -207,6 +246,23 @@ class App extends DoDom {
         });
       }
     });
+
+    if (selectDom) {
+      const hasPrevious = dropdownDef.some(opt => opt.value === previousValue);
+      const valueToSelect = hasPrevious ? previousValue : dropdownDef?.[0]?.value;
+      if (valueToSelect) {
+        selectDom.value = valueToSelect;
+      }
+    }
+    this.applyUrlSearchState();
+  }
+
+  formatDropdownLabel (optionDef, shortcuts = []) {
+    const baseLabel = optionDef?.label ?? '';
+    if (!this.showDropdownShortcuts) return baseLabel;
+    const list = Array.isArray(shortcuts) ? shortcuts : [];
+    if (!list.length) return baseLabel;
+    return `${baseLabel} (${list.join(', ')})`;
   }
 
   renderLinks (linksDef = []) {
@@ -298,6 +354,8 @@ class App extends DoDom {
 
     const query = this.searchBox?.dom?.value || '';
     const dropdown = this.searchDropdown?.dom;
+    const dropdownValue = dropdown?.value || '';
+    this.saveSearchStateToUrl(query, dropdownValue);
     const selected = dropdown?.options?.[dropdown.selectedIndex];
     const template = selected?.dataset?.url;
 
@@ -314,6 +372,7 @@ class App extends DoDom {
 
   onDropdownKeydown (event) {
     if (!this.searchDropdown?.dom) return;
+    this.dropdownSelectionViaPointer = false;
 
     if (event.key === 'Enter') {
       this.performSearch(event);
@@ -370,6 +429,94 @@ class App extends DoDom {
     const css = event?.target?.value ?? '';
     this.settingsManager?.set('custom-css', css);
     this.updateCustomCss(css);
+  }
+
+  onShowDropdownShortcutsChange (event) {
+    const checked = !!event?.target?.checked;
+    this.showDropdownShortcuts = checked;
+    this.settingsManager?.set('show-dropdown-shortcuts', checked);
+    this.renderDropdown(this.currentDropdownDef || []);
+  }
+
+  onAutoSearchOnClickChange (event) {
+    const checked = !!event?.target?.checked;
+    this.autoSearchOnDropdownClick = checked;
+    this.settingsManager?.set('auto-search-on-click', checked);
+  }
+
+  onDropdownPointerDown () {
+    this.dropdownSelectionViaPointer = true;
+  }
+
+  onDropdownBlur () {
+    this.dropdownSelectionViaPointer = false;
+  }
+
+  onDropdownChange () {
+    const triggeredByPointer = this.dropdownSelectionViaPointer;
+    this.dropdownSelectionViaPointer = false;
+    if (!this.autoSearchOnDropdownClick || !triggeredByPointer) return;
+    this.performSearch();
+  }
+
+  readSearchStateFromUrl () {
+    try {
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+      const query = params.get('search-query') || '';
+      const dropdown = params.get('search-dropdown') || '';
+      if (!query && !dropdown) return null;
+      return { query, dropdown };
+    } catch (error) {
+      console.warn('Failed to read search state from URL.', error);
+      return null;
+    }
+  }
+
+  applyUrlSearchState () {
+    if (this.hasAppliedUrlSearchState) return;
+    const state = this.urlSearchState;
+    if (!state) return;
+
+    const dropdown = this.searchDropdown?.dom;
+    const searchInput = this.searchBox?.dom;
+
+    if (searchInput && typeof state.query === 'string' && state.query) {
+      searchInput.value = state.query;
+    }
+
+    if (dropdown && typeof state.dropdown === 'string' && state.dropdown) {
+      const matchingOption = Array.from(dropdown.options || []).some(option => option.value === state.dropdown);
+      if (matchingOption) {
+        dropdown.value = state.dropdown;
+      }
+    }
+
+    this.hasAppliedUrlSearchState = true;
+  }
+
+  saveSearchStateToUrl (query = '', dropdownValue = '') {
+    try {
+      const url = new URL(window.location.href);
+      if (query) {
+        url.searchParams.set('search-query', query);
+      } else {
+        url.searchParams.delete('search-query');
+      }
+
+      if (dropdownValue) {
+        url.searchParams.set('search-dropdown', dropdownValue);
+      } else {
+        url.searchParams.delete('search-dropdown');
+      }
+
+      const newUrl = url.toString();
+      if (newUrl !== window.location.href) {
+        window.history.replaceState(window.history.state, '', newUrl);
+      }
+    } catch (error) {
+      console.warn('Failed to save search state to URL.', error);
+    }
   }
 
   onSearchboxKeydown (event) {
