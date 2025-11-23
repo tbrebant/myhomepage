@@ -18,7 +18,8 @@ body {
 }
 
 .app {
-
+  width: 100vw;
+  height: 100vh;
 }
 
 a {
@@ -193,6 +194,7 @@ select {
   height: 100vh;
   display: none;
   position: absolute;
+  z-index: 999;
   top: 0;
   left: 0;
   pointer-events: none;
@@ -299,4 +301,37 @@ select {
 .settingsCheckboxInput {
   width: 18px;
   height: 18px;
+}
+
+.version {
+  position: absolute;
+  bottom: 5px;
+  left: 10px;
+  font-size: 0.8rem;
+  color: var(--placeholder-color);
+}
+
+.postIt {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(50vh, 50vw);
+    height: min(50vh, 50vw);
+    box-shadow: 2px 2px 15px rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: 'Pangolin', cursive;
+    z-index: 999;
+    background-color: white;
+    transform: translate(-50%, -50%);
+    transition: opacity var(--settings-opening-duration);
+}
+
+.clickDetector {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  z-index: 10;
+  top: 0;
+  left: 0;
 }

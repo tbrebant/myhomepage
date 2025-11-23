@@ -1,174 +1,279 @@
+const VERSION = '1.1.1';
+
+const SEARCH_ENGINES = [
+  { label: 'DuckDuckGo', value: 'duckduckgo', url: 'https://www.duckduckgo.com/?q={q}', shortcuts: ['d', 'dd'] },
+  { label: 'DuckDuckGo Images', value: 'duckduckgo-images', url: 'https://duckduckgo.com/?q={q}&iar=images', shortcuts: ['i', 'di', 'ddi'] },
+  { label: 'Google', value: 'google', url: 'https://www.google.com/search?q={q}', shortcuts: ['g', 'gg'] },
+  { label: 'Google Images', value: 'google-images', url: 'https://www.google.com/search?tbm=isch&q={q}', shortcuts: ['gi', 'ggi'] },
+  { label: 'YouTube', value: 'youtube', url: 'https://www.youtube.com/results?search_query={q}', shortcuts: ['y', 'yt'] },
+  { label: 'Yahoo jp', value: 'yahoo', url: 'https://search.yahoo.co.jp/search?p={q}', shortcuts: ['ya', 'yj'] },
+  { label: 'ChatGPT', value: 'chatgpt', url: 'https://chat.openai.com/?q={q}', shortcuts: ['c', 'cg'] },
+  { label: '⇒ English', value: 'translate', url: 'https://translate.google.com/?sl=auto&tl=en&text={q}&op=translate', shortcuts: ['te'] },
+  { label: '⇒ French', value: 'translate-fr', url: 'https://translate.google.com/?sl=auto&tl=fr&text={q}&op=translate', shortcuts: ['t', 'tf'] },
+  { label: '⇒ Japanese', value: 'translate-ja', url: 'https://translate.google.com/?sl=auto&tl=ja&text={q}&op=translate', shortcuts: ['tj'] },
+  { label: 'Google (fr results)', value: 'google-fr', url: 'https://www.google.com/search?q={q}&lr=lang_fr&hl=fr', shortcuts: ['gf', 'gfr'] },
+  { label: 'Google (en results)', value: 'google-en', url: 'https://www.google.com/search?q={q}&lr=lang_en&hl=en', shortcuts: ['ge', 'gen'] },
+  { label: 'Google (ja results)', value: 'google-ja', url: 'https://www.google.com/search?q={q}&lr=lang_ja&hl=ja', shortcuts: ['gj', 'gja'] },
+  { label: 'DuckDuckGo (fr results)', value: 'duckduckgo-fr', url: 'https://www.duckduckgo.com/?q={q}&kl=fr-fr', shortcuts: ['df', 'dfr', 'ddf'] },
+  { label: 'DuckDuckGo (en results)', value: 'duckduckgo-en', url: 'https://www.duckduckgo.com/?q={q}&kl=us-en', shortcuts: ['de', 'den', 'dde'] },
+  { label: 'DuckDuckGo (ja results)', value: 'duckduckgo-ja', url: 'https://www.duckduckgo.com/?q={q}&kl=jp-ja', shortcuts: ['dj', 'dja', 'ddj'] }
+];
+
+const MEMOS = {
+  ascii: '● •<br/>✓ ✔ ☑ ✅ ✗ ✘ ❌<br/>➜ ⬆ ➡ ⬇ ⬅<br/>—<br/>├ ─ │ └'
+};
+
+const BASE_PAGES = {
+  perso: {
+    title: 'Perso',
+    logoSrc: './mountain.jpg',
+    links: [
+      { label: 'ChatGPT', url: 'https://chatgpt.com/' },
+      { label: 'Gmail', url: 'https://mail.google.com/' },
+      { label: 'docteeboh', url: 'https://www.docteeboh.net' },
+      { label: 'Github', url: 'https://github.com/' },
+      { label: 'Maps', url: 'https://www.google.com/maps' },
+      { label: 'bgg', url: 'https://boardgamegeek.com/' },
+      { label: 'YouTube', url: 'https://www.youtube.com/' },
+      { label: 'Canard PC', url: 'https://www.canardpc.com/' },
+      { label: 'Ascii', memoKey: 'ascii' }
+    ]
+  },
+  work: {
+    title: 'Work',
+    logoSrc: './psychedelic.jpg',
+    links: [
+      { label: 'Gmail', url: 'https://mail.google.com/' },
+      { label: 'Calendar', url: 'https://calendar.google.com/' },
+      { label: 'Meet', url: 'https://meet.google.com/' },
+      { label: 'Github', url: 'https://github.com/' },
+      { label: 'AWS', url: 'https://us-east-1.console.aws.amazon.com/s3/buckets' },
+      { label: 'ChatGPT', url: 'https://chatgpt.com/' },
+      { label: 'Maps', url: 'https://www.google.com/maps' },
+      { label: 'Ascii', memoKey: 'ascii' }
+    ]
+  }
+};
+
+function cloneDropdownOptions (options = []) {
+  return options.map(option => ({
+    ...option,
+    shortcuts: Array.isArray(option.shortcuts) ? [...option.shortcuts] : option.shortcuts
+  }));
+}
+
+function resolveLinks (linkDefs = [], openMemo) {
+  return linkDefs.map(link => {
+    if (link.memoKey) {
+      return { label: link.label, js: () => openMemo(link.memoKey) };
+    }
+    return { label: link.label, url: link.url };
+  });
+}
+
 class App extends DoDom {
   constructor () {
     super('div', { class: 'app', attachToBody: true });
 
-    const dropdown = [
-      { label: 'DuckDuckGo', value: 'duckduckgo', url: 'https://www.duckduckgo.com/?q={q}', shortcuts: ['d'] },
-      { label: 'DuckDuckGo Images', value: 'duckduckgo-images', url: 'https://duckduckgo.com/?q={q}&iar=images', shortcuts: ['i'] },
-      { label: 'Google', value: 'google', url: 'https://www.google.com/search?q={q}', shortcuts: ['g'] },
-      { label: 'Google Images', value: 'google-images', url: 'https://www.google.com/search?tbm=isch&q={q}', shortcuts: ['gi'] },
-      { label: 'YouTube', value: 'youtube', url: 'https://www.youtube.com/results?search_query={q}', shortcuts: ['y', 'yt'] },
-      { label: 'Yahoo jp', value: 'yahoo', url: 'https://search.yahoo.co.jp/search?p={q}', shortcuts: ['ya'] },
-      { label: 'ChatGPT', value: 'chatgpt', url: 'https://chat.openai.com/?q={q}', shortcuts: ['c', 'cg'] },
-      { label: '⇒ English', value: 'translate', url: 'https://translate.google.com/?sl=auto&tl=en&text={q}&op=translate', shortcuts: ['te'] },
-      { label: '⇒ French', value: 'translate-fr', url: 'https://translate.google.com/?sl=auto&tl=fr&text={q}&op=translate', shortcuts: ['t', 'tf'] },
-      { label: '⇒ Japanese', value: 'translate-ja', url: 'https://translate.google.com/?sl=auto&tl=ja&text={q}&op=translate', shortcuts: ['tj'] },
-      { label: 'Google (fr results)', value: 'google-fr', url: 'https://www.google.com/search?q={q}&lr=lang_fr&hl=fr', shortcuts: ['gf'] },
-      { label: 'Google (en results)', value: 'google-en', url: 'https://www.google.com/search?q={q}&lr=lang_en&hl=en', shortcuts: ['ge'] },
-      { label: 'Google (ja results)', value: 'google-ja', url: 'https://www.google.com/search?q={q}&lr=lang_ja&hl=ja', shortcuts: ['gj'] },
-      { label: 'DuckDuckGo (fr results)', value: 'duckduckgo-fr', url: 'https://www.duckduckgo.com/?q={q}&kl=fr-fr', shortcuts: ['df'] },
-      { label: 'DuckDuckGo (en results)', value: 'duckduckgo-en', url: 'https://www.duckduckgo.com/?q={q}&kl=us-en', shortcuts: ['de'] },
-      { label: 'DuckDuckGo (ja results)', value: 'duckduckgo-ja', url: 'https://www.duckduckgo.com/?q={q}&kl=jp-ja', shortcuts: ['dj'] },
-
-    ];
-
-    this.config = {
-      pages: {
-        perso: {
-          title: 'Perso',
-          logo: { src: './mountain.jpg' },
-          dropdown: [...dropdown],
-          links: [
-            { label: 'ChatGPT', url: 'https://chatgpt.com/' },
-            { label: 'Gmail', url: 'https://mail.google.com/' },
-            { label: 'docteeboh', url: 'https://www.docteeboh.net' },
-            { label: 'Github', url: 'https://github.com/' },
-            { label: 'Maps', url: 'https://www.google.com/maps' },
-            { label: 'bgg', url: 'https://boardgamegeek.com/' },
-            { label: 'Deepl', url: 'https://www.deepl.com/en/translator' },
-            { label: 'YouTube', url: 'https://www.youtube.com/' },
-            { label: 'Canard PC', url: 'https://www.canardpc.com/' }
-          ]
-        },
-        work: {
-          title: 'Work',
-          logo: { src: './psychedelic.jpg' },
-          dropdown: [...dropdown],
-          links: [
-            { label: 'Gmail', url: 'https://mail.google.com/' },
-            { label: 'Calendar', url: 'https://calendar.google.com/' },
-            { label: 'Meet', url: 'https://meet.google.com/' },
-            { label: 'Github', url: 'https://github.com/' },
-            { label: 'AWS', url: 'https://us-east-1.console.aws.amazon.com/s3/buckets' },
-            { label: 'ChatGPT', url: 'https://chatgpt.com/' },
-            { label: 'Maps', url: 'https://www.google.com/maps' },
-          ]
-        }
-      },
-      default: 'perso'
-    };
-
-    this.shortcutActive = false;
-    this.shortcutBuffer = [];
-    this.shortcutBufferRaw = [];
-    this.dropdownShortcuts = {};
-
-    this.settingsButton = this.addDoDom('div', { class: 'settings-button', html: '&lt;&lt;' });
-
-    this.mainContainer = this.addDoDom('div', { class: 'main-container' });
-
-    this.logo = this.mainContainer.addDoDom('div', { class: 'logo-img' });
-
-    this.mainContent = this.mainContainer.addDoDom('div', {});
-
-    this.form = this.mainContent.addDoDom('form', { class: 'search-container' });
-
-    this.searchBox = this.form.addDoDom('input', { class: 'searchbox' });
-    this.searchBox.dom.type = 'text';
-    this.searchBox.dom.name = 'searchbox';
-    this.searchBox.dom.placeholder = 'Looking for something?';
-    this.searchBox.dom.autofocus = true;
-    this.searchBox.dom.autocomplete = 'off';
-
-    this.searchAction = this.form.addDoDom('div', { class: 'search-actions' });
-    this.searchDropdown = this.searchAction.addDoDom('select', { class: 'search-dropdown' });
-    this.submitButton = this.searchAction.addDoDom('button', { text: 'Go', class: 'search-submit' });
-    this.submitButton.dom.type = 'submit';
-
-    this.linksContainer = this.mainContent.addDoDom('div', { class: 'link-columns' });
-
     this.settingsManager = new SettingsManager('homepage');
-    this.showDropdownShortcuts = this.settingsManager.get('show-dropdown-shortcuts', false);
-    this.autoSearchOnDropdownClick = this.settingsManager.get('auto-search-on-click', false);
-    this.dropdownSelectionViaPointer = false;
-    this.urlSearchState = this.readSearchStateFromUrl();
-    this.hasAppliedUrlSearchState = false;
 
-    this.settingsWrapper = this.addDoDom('div', { class: 'settingsWrapper' });
-    this.settingsContainer = this.settingsWrapper.addDoDom('div', { class: 'settingsContainer' });
-    this.closeSettingsBtn = this.settingsContainer.addDoDom('div', { html: '&gt;&gt;', class: 'closeSettingsBtn' });
-    this.settingsTitle = this.settingsContainer.addDoDom('div', { text: 'Settings', class: 'title' });
-    // *** Page selector ***
-    this.pageCheckboxes = {};
+    this.bindInstanceMethods();
+    this.initializeState();
+    this.loadPreferences();
+    this.config = this.buildConfig();
+
+    this.buildLayout();
+    this.applyInitialPreferences();
+
     const initialPageKey = this.getInitialPageKey();
     this.currentPageKey = initialPageKey;
     this.renderSettingsPages();
     this.renderPage(initialPageKey);
     this.applyUrlSearchState();
-    // *** Dropdown preferences ***
-    this.dropdownSettingsSection = this.settingsContainer.addDoDom('div', { class: 'settingsSection' });
-    const dropdownToggleLabel = this.dropdownSettingsSection.addDoDom('label', { classes: ['settingsLabel', 'settingsCheckboxLabel'] });
-    this.dropdownShortcutsCheckbox = dropdownToggleLabel.addDoDom('input', { class: 'settingsCheckboxInput' });
-    this.dropdownShortcutsCheckbox.dom.type = 'checkbox';
-    this.dropdownShortcutsCheckbox.dom.id = 'settings-show-dropdown-shortcuts';
-    this.dropdownShortcutsCheckbox.dom.checked = this.showDropdownShortcuts;
-    this.dropdownShortcutsCheckbox.dom.addEventListener('change', this.onShowDropdownShortcutsChange.bind(this));
-    dropdownToggleLabel.dom.htmlFor = 'settings-show-dropdown-shortcuts';
-    dropdownToggleLabel.addDoDom('span', { text: 'Show shortcuts in dropdown' });
-    const autoSearchLabel = this.dropdownSettingsSection.addDoDom('label', { classes: ['settingsLabel', 'settingsCheckboxLabel'] });
-    this.autoSearchOnClickCheckbox = autoSearchLabel.addDoDom('input', { class: 'settingsCheckboxInput' });
-    this.autoSearchOnClickCheckbox.dom.type = 'checkbox';
-    this.autoSearchOnClickCheckbox.dom.id = 'settings-auto-search-on-click';
-    this.autoSearchOnClickCheckbox.dom.checked = this.autoSearchOnDropdownClick;
-    this.autoSearchOnClickCheckbox.dom.addEventListener('change', this.onAutoSearchOnClickChange.bind(this));
-    autoSearchLabel.dom.htmlFor = 'settings-auto-search-on-click';
-    autoSearchLabel.addDoDom('span', { text: 'Auto search on dropdown click' });
-    // *** Custom CSS ***
-    this.customCssSection = this.settingsContainer.addDoDom('div', { class: 'settingsSection' });
+
+    this.attachEventListeners();
+    this.focusSearchInput();
+    this.initializeCustomCss();
+
+    window.renderPage = this.renderPage.bind(this);
+  }
+
+  bindInstanceMethods () {
+    this.performSearch = this.performSearch.bind(this);
+    this.onDropdownKeydown = this.onDropdownKeydown.bind(this);
+    this.onCustomCssInput = this.onCustomCssInput.bind(this);
+    this.onSearchboxKeydown = this.onSearchboxKeydown.bind(this);
+    this.onSearchboxKeyup = this.onSearchboxKeyup.bind(this);
+  }
+
+  initializeState () {
+    this.shortcutActive = false;
+    this.shortcutBuffer = [];
+    this.shortcutBufferRaw = [];
+    this.dropdownShortcuts = {};
+    this.dropdownSelectionViaPointer = false;
+    this.pageCheckboxes = {};
+    this.currentDropdownDef = [];
+    this.hasAppliedUrlSearchState = false;
+  }
+
+  loadPreferences () {
+    this.showVersionNumber = this.settingsManager.get('show-version', false);
+    this.showDropdownShortcuts = this.settingsManager.get('show-dropdown-shortcuts', true);
+    this.autoSearchOnDropdownClick = this.settingsManager.get('auto-search-on-click', true);
+    this.urlSearchState = this.readSearchStateFromUrl();
+  }
+
+  buildConfig () {
+    const openMemo = memoKey => this.openMemo(memoKey);
+    const pages = Object.entries(BASE_PAGES).reduce((allPages, [key, page]) => {
+      allPages[key] = {
+        title: page.title,
+        logo: { src: page.logoSrc },
+        dropdown: cloneDropdownOptions(SEARCH_ENGINES),
+        links: resolveLinks(page.links, openMemo)
+      };
+      return allPages;
+    }, {});
+
+    return {
+      pages,
+      default: 'perso'
+    };
+  }
+
+  buildLayout () {
+    this.version = this.addDoDom('div', { class: 'version', text: `v${VERSION}` });
+
+    this.clickDetector = this.addDoDom('div', {
+      class: 'clickDetector',
+      onClick: () => {
+        this.openCloseSettings(false);
+        this.closePostIt();
+      },
+      visible: false
+    });
+
+    this.settingsButton = this.addDoDom('div', { class: 'settings-button', html: '&lt;&lt;' });
+
+    this.mainContainer = this.addDoDom('div', { class: 'main-container' });
+    this.logo = this.mainContainer.addDoDom('div', { class: 'logo-img' });
+    this.mainContent = this.mainContainer.addDoDom('div', {});
+
+    this.createSearchForm();
+    this.linksContainer = this.mainContent.addDoDom('div', { class: 'link-columns' });
+
+    this.postIt = this.addDoDom('div', { class: 'postIt', visible: false });
+
+    this.createSettingsPanel();
+  }
+
+  createSearchForm () {
+    this.form = this.mainContent.addDoDom('form', { class: 'search-container' });
+    this.searchBox = this.form.addDoDom('input', { class: 'searchbox' });
+    Object.assign(this.searchBox.dom, {
+      type: 'text',
+      name: 'searchbox',
+      placeholder: 'Looking for something?',
+      autofocus: true,
+      autocomplete: 'off'
+    });
+
+    const actions = this.form.addDoDom('div', { class: 'search-actions' });
+    this.searchDropdown = actions.addDoDom('select', { class: 'search-dropdown' });
+    this.submitButton = actions.addDoDom('button', { text: 'Go', class: 'search-submit' });
+    this.submitButton.dom.type = 'submit';
+  }
+
+  createSettingsPanel () {
+    this.settingsWrapper = this.addDoDom('div', { class: 'settingsWrapper' });
+    this.settingsContainer = this.settingsWrapper.addDoDom('div', { class: 'settingsContainer' });
+    this.closeSettingsBtn = this.settingsContainer.addDoDom('div', { html: '&gt;&gt;', class: 'closeSettingsBtn' });
+    this.settingsTitle = this.settingsContainer.addDoDom('div', { text: 'Settings', class: 'title' });
+
+    this.generalSettingsSection = this.createSettingsSection();
+    this.showVersionCheckbox = this.createCheckboxSetting({
+      parent: this.generalSettingsSection,
+      id: 'settings-show-version',
+      label: 'Show version number',
+      checked: this.showVersionNumber,
+      onChange: this.onShowVersionChange.bind(this)
+    });
+
+    this.dropdownSettingsSection = this.createSettingsSection();
+    this.dropdownShortcutsCheckbox = this.createCheckboxSetting({
+      parent: this.dropdownSettingsSection,
+      id: 'settings-show-dropdown-shortcuts',
+      label: 'Show shortcuts in dropdown',
+      checked: this.showDropdownShortcuts,
+      onChange: this.onShowDropdownShortcutsChange.bind(this)
+    });
+
+    this.autoSearchOnClickCheckbox = this.createCheckboxSetting({
+      parent: this.dropdownSettingsSection,
+      id: 'settings-auto-search-on-click',
+      label: 'Auto search on dropdown click',
+      checked: this.autoSearchOnDropdownClick,
+      onChange: this.onAutoSearchOnClickChange.bind(this)
+    });
+
+    this.customCssSection = this.createSettingsSection();
     this.customCssLabel = this.customCssSection.addDoDom('label', { text: 'Custom CSS', class: 'settingsLabel' });
     this.customCssTextarea = this.customCssSection.addDoDom('textarea', { class: 'settingsTextarea' });
     this.customCssTextarea.dom.rows = 8;
     this.customCssTextarea.dom.placeholder = '/* Write CSS rules here */';
     this.customCssLabel.dom.htmlFor = 'settings-custom-css';
     this.customCssTextarea.dom.id = 'settings-custom-css';
-    // *** Reload button ***
+
     this.reloadButton = this.settingsContainer.addDoDom('button', { text: 'Reload', class: 'settingsReloadBtn' });
     this.reloadButton.dom.type = 'button';
+  }
 
-    this.performSearch = this.performSearch.bind(this);
-    this.onDropdownKeydown = this.onDropdownKeydown.bind(this);
-    this.onCustomCssInput = this.onCustomCssInput.bind(this);
-    this.onSearchboxKeydown = this.onSearchboxKeydown.bind(this);
-    this.onSearchboxKeyup = this.onSearchboxKeyup.bind(this);
+  createSettingsSection () {
+    return this.settingsContainer.addDoDom('div', { class: 'settingsSection' });
+  }
 
-    this.attachEventListeners();
-    this.focusSearchInput();
+  createCheckboxSetting ({ parent, id, label, checked, onChange }) {
+    const wrapper = parent.addDoDom('label', { classes: ['settingsLabel', 'settingsCheckboxLabel'] });
+    const input = wrapper.addDoDom('input', { class: 'settingsCheckboxInput' });
+    input.dom.type = 'checkbox';
+    input.dom.id = id;
+    input.dom.checked = checked;
+    input.dom.addEventListener('change', onChange);
+    wrapper.dom.htmlFor = id;
+    wrapper.addDoDom('span', { text: label });
+    return input;
+  }
 
+  applyInitialPreferences () {
+    if (!this.showVersionNumber) {
+      this.version.hide();
+    }
+  }
+
+  initializeCustomCss () {
     const savedCustomCss = this.settingsManager.get('custom-css', '');
     this.customCssTextarea.dom.value = savedCustomCss;
     this.updateCustomCss(savedCustomCss);
-
-    window.renderPage = this.renderPage.bind(this);
   }
 
-  onSearchboxKeyup (event) {
-    if (event.key !== 'Shift') return;
-
-    const bufferJoined = this.shortcutBuffer.join('');
-    const rawText = this.shortcutBufferRaw.join('');
-
-    this.shortcutActive = false;
-    this.shortcutBuffer = [];
-    this.shortcutBufferRaw = [];
-
-    if (!bufferJoined) return;
-
-    const handled = this.applyShortcutFromBuffer(bufferJoined);
-    if (handled) {
-      this.focusSearchInput();
+  attachEventListeners () {
+    this.settingsButton.onClick(() => this.openCloseSettings(true));
+    this.closeSettingsBtn.onClick(() => this.openCloseSettings(false));
+    this.submitButton.onClick(this.performSearch);
+    this.reloadButton.onClick(() => this.hardReload());
+    this.searchBox.dom.addEventListener('keydown', this.onSearchboxKeydown);
+    this.searchBox.dom.addEventListener('keyup', this.onSearchboxKeyup);
+    this.form.dom.addEventListener('submit', this.performSearch);
+    this.searchDropdown.dom.addEventListener('keydown', this.onDropdownKeydown);
+    this.searchDropdown.dom.addEventListener('change', this.onDropdownChange.bind(this));
+    if (typeof window !== 'undefined' && 'PointerEvent' in window) {
+      this.searchDropdown.dom.addEventListener('pointerdown', this.onDropdownPointerDown.bind(this));
     } else {
-      this.insertTextAtCursor(rawText);
+      this.searchDropdown.dom.addEventListener('mousedown', this.onDropdownPointerDown.bind(this));
     }
+    this.searchDropdown.dom.addEventListener('blur', this.onDropdownBlur.bind(this));
+    this.customCssTextarea.dom.addEventListener('input', this.onCustomCssInput);
   }
 
   applyShortcutFromBuffer (shortcut = '') {
@@ -200,25 +305,6 @@ class App extends DoDom {
     if (typeof input.setSelectionRange === 'function') {
       input.setSelectionRange(caret, caret);
     }
-  }
-
-  attachEventListeners () {
-    this.settingsButton.onClick(() => this.openCloseSettings(true));
-    this.closeSettingsBtn.onClick(() => this.openCloseSettings(false));
-    this.submitButton.onClick(this.performSearch);
-    this.reloadButton.onClick(() => this.hardReload());
-    this.searchBox.dom.addEventListener('keydown', this.onSearchboxKeydown);
-    this.searchBox.dom.addEventListener('keyup', this.onSearchboxKeyup);
-    this.form.dom.addEventListener('submit', this.performSearch);
-    this.searchDropdown.dom.addEventListener('keydown', this.onDropdownKeydown);
-    this.searchDropdown.dom.addEventListener('change', this.onDropdownChange.bind(this));
-    if (typeof window !== 'undefined' && 'PointerEvent' in window) {
-      this.searchDropdown.dom.addEventListener('pointerdown', this.onDropdownPointerDown.bind(this));
-    } else {
-      this.searchDropdown.dom.addEventListener('mousedown', this.onDropdownPointerDown.bind(this));
-    }
-    this.searchDropdown.dom.addEventListener('blur', this.onDropdownBlur.bind(this));
-    this.customCssTextarea.dom.addEventListener('input', this.onCustomCssInput);
   }
 
   renderDropdown (dropdownDef = []) {
@@ -270,9 +356,14 @@ class App extends DoDom {
     container.destroyChildren();
     linksDef.forEach(link => {
       const anchor = container.addDoDom('a', { text: link.label });
-      anchor.dom.href = link.url;
-      anchor.dom.target = '_self';
-      anchor.dom.rel = 'noopener noreferrer';
+      if (typeof link.js === 'function') {
+        anchor.dom.href = '#';
+        anchor.onClick(() => link.js());
+      } else {
+        anchor.dom.href = link.url;
+        anchor.dom.target = '_self';
+        anchor.dom.rel = 'noopener noreferrer';
+      }
     });
   }
 
@@ -393,21 +484,28 @@ class App extends DoDom {
   openCloseSettings (open = true) {
     if (open) {
       this.settingsWrapper.setStyle('display', 'block');
-      this.settingsContainer.reflow(); // reflow to enable transition
+      this.settingsContainer.reflow();
       this.settingsContainer.setStyle('right', '2vh');
-      this.mainContainer.setStyle('filter', 'blur(5px)');
+      this.blurMainContent(true);
       this.settingsButton.setStyles({ opacity: '0', pointerEvents: 'none' });
+      this.clickDetector.show();
     } else {
       this.settingsContainer.setStyle('right', '');
-      this.mainContainer.setStyle('filter', '');
+      this.blurMainContent(false);
       this.settingsButton.setStyles({ opacity: '', pointerEvents: '' });
+      this.clickDetector.hide();
     }
   }
 
+  blurMainContent (onOff = true) {
+    this.mainContainer.setStyle('filter', onOff ? 'blur(5px)' : '');
+  }
+
   focusSearchInput () {
-    const input = this.searchBox.dom;
+    const input = this.searchBox?.dom;
+    if (!input) return;
     input.focus();
-    input.value = input.value; // move caret to end
+    input.value = input.value;
   }
 
   ensureCustomCssStyleElement () {
@@ -429,6 +527,37 @@ class App extends DoDom {
     const css = event?.target?.value ?? '';
     this.settingsManager?.set('custom-css', css);
     this.updateCustomCss(css);
+  }
+
+  onSearchboxKeyup (event) {
+    if (event.key !== 'Shift') return;
+
+    const bufferJoined = this.shortcutBuffer.join('');
+    const rawText = this.shortcutBufferRaw.join('');
+
+    this.shortcutActive = false;
+    this.shortcutBuffer = [];
+    this.shortcutBufferRaw = [];
+
+    if (!bufferJoined) return;
+
+    const handled = this.applyShortcutFromBuffer(bufferJoined);
+    if (handled) {
+      this.focusSearchInput();
+    } else {
+      this.insertTextAtCursor(rawText);
+    }
+  }
+
+  onShowVersionChange (event) {
+    const checked = !!event?.target?.checked;
+    this.showVersionNumber = checked;
+    this.settingsManager?.set('show-version', checked);
+    if (checked) {
+      this.version.show();
+    } else {
+      this.version.hide();
+    }
   }
 
   onShowDropdownShortcutsChange (event) {
@@ -562,7 +691,6 @@ class App extends DoDom {
   hardReload () {
     const now = Date.now();
 
-    // Force-refresh all external resources
     document.querySelectorAll('link[rel="stylesheet"], script[src], img[src]').forEach(el => {
       const attr = el.tagName === 'LINK' ? 'href' : 'src';
       const url = new URL(el[attr], location.origin);
@@ -570,9 +698,31 @@ class App extends DoDom {
       el[attr] = url.toString();
     });
 
-    // Finally reload the HTML document itself with a cache-busting query
     const baseUrl = location.href.split('?')[0];
     location.replace(`${baseUrl}?reload=${now}`);
+  }
+
+  openPostIt (html = '') {
+    this.blurMainContent(true);
+    this.postIt.setStyle('opacity', '0');
+    this.postIt.setHTML(html);
+    this.postIt.show();
+    this.postIt.reflow();
+    this.postIt.setStyle('opacity', '1');
+    this.clickDetector.show();
+  }
+
+  closePostIt () {
+    this.blurMainContent(false);
+    this.postIt.hide();
+    this.clickDetector.hide();
+  }
+
+  openMemo (memoKey) {
+    const memo = MEMOS[memoKey];
+    if (memo) {
+      this.openPostIt(memo);
+    }
   }
 }
 
