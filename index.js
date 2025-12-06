@@ -102,8 +102,9 @@ class App extends DoDom {
     this.performSearch = this.performSearch.bind(this);
     this.onDropdownKeydown = this.onDropdownKeydown.bind(this);
     this.onCustomCssInput = this.onCustomCssInput.bind(this);
-    this.onSearchboxKeydown = this.onSearchboxKeydown.bind(this);
-    this.onSearchboxKeyup = this.onSearchboxKeyup.bind(this);
+    this.onCustomCssInput = this.onCustomCssInput.bind(this);
+    this.onGlobalKeydown = this.onGlobalKeydown.bind(this);
+    this.onGlobalKeyup = this.onGlobalKeyup.bind(this);
   }
 
   initializeState () {
@@ -262,8 +263,10 @@ class App extends DoDom {
     this.closeSettingsBtn.onClick(() => this.openCloseSettings(false));
     this.submitButton.onClick(this.performSearch);
     this.reloadButton.onClick(() => this.hardReload());
-    this.searchBox.dom.addEventListener('keydown', this.onSearchboxKeydown);
-    this.searchBox.dom.addEventListener('keyup', this.onSearchboxKeyup);
+    this.submitButton.onClick(this.performSearch);
+    this.reloadButton.onClick(() => this.hardReload());
+    document.addEventListener('keydown', this.onGlobalKeydown);
+    document.addEventListener('keyup', this.onGlobalKeyup);
     this.form.dom.addEventListener('submit', this.performSearch);
     this.searchDropdown.dom.addEventListener('keydown', this.onDropdownKeydown);
     this.searchDropdown.dom.addEventListener('change', this.onDropdownChange.bind(this));
@@ -305,6 +308,7 @@ class App extends DoDom {
     if (typeof input.setSelectionRange === 'function') {
       input.setSelectionRange(caret, caret);
     }
+    input.focus();
   }
 
   renderDropdown (dropdownDef = []) {
@@ -529,8 +533,9 @@ class App extends DoDom {
     this.updateCustomCss(css);
   }
 
-  onSearchboxKeyup (event) {
+  onGlobalKeyup (event) {
     if (event.key !== 'Shift') return;
+    if (event.target !== this.searchBox.dom && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable)) return;
 
     const bufferJoined = this.shortcutBuffer.join('');
     const rawText = this.shortcutBufferRaw.join('');
@@ -648,7 +653,9 @@ class App extends DoDom {
     }
   }
 
-  onSearchboxKeydown (event) {
+  onGlobalKeydown (event) {
+    if (event.target !== this.searchBox.dom && (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable)) return;
+
     if (event.key === 'Shift') {
       this.shortcutActive = true;
       this.shortcutBuffer = [];
@@ -672,7 +679,7 @@ class App extends DoDom {
       }
     }
 
-    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    if (event.target === this.searchBox.dom && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       event.preventDefault();
       const delta = event.key === 'ArrowUp' ? -1 : 1;
       this.adjustDropdownSelection(delta);
