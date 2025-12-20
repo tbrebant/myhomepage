@@ -16,7 +16,8 @@ const SEARCH_ENGINES = [
   { label: 'Google (ja results)', value: 'google-ja', url: 'https://www.google.com/search?q={q}&lr=lang_ja&hl=ja', shortcuts: ['gj', 'gja'] },
   { label: 'DuckDuckGo (fr results)', value: 'duckduckgo-fr', url: 'https://www.duckduckgo.com/?q={q}&kl=fr-fr', shortcuts: ['df', 'dfr', 'ddf'] },
   { label: 'DuckDuckGo (en results)', value: 'duckduckgo-en', url: 'https://www.duckduckgo.com/?q={q}&kl=us-en', shortcuts: ['de', 'den', 'dde'] },
-  { label: 'DuckDuckGo (ja results)', value: 'duckduckgo-ja', url: 'https://www.duckduckgo.com/?q={q}&kl=jp-ja', shortcuts: ['dj', 'dja', 'ddj'] }
+  { label: 'DuckDuckGo (ja results)', value: 'duckduckgo-ja', url: 'https://www.duckduckgo.com/?q={q}&kl=jp-ja', shortcuts: ['dj', 'dja', 'ddj'] },
+  { label: 'Google Maps', value: 'google-maps', url: 'https://www.google.com/maps/search/{q}', shortcuts: ['gm'] }
 ];
 
 const MEMOS = {
